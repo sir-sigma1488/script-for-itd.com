@@ -1,0 +1,88 @@
+(function() {
+
+    const myBase64 = 'ВСТАВЬТЕ_СЮДА_ВАШУ_СТРОКУ_BASE64';
+
+    
+
+    let fakeBlob = null;
+
+    try {
+
+      
+
+        const cleanBase64 = myBase64.trim().replace(/^data:image\/[a-z]+;base64,/, '');
+
+        const byteCharacters = atob(cleanBase64);
+
+        const byteNumbers = new Array(byteCharacters.length);
+
+        for (let i = 0; i < byteCharacters.length; i++) {
+
+            byteNumbers[i] = byteCharacters.charCodeAt(i);
+
+        }
+
+        const byteArray = new Uint8Array(byteNumbers);
+
+        fakeBlob = new Blob([byteArray], { type: 'image/png' });
+
+    } catch (e) {
+
+        console.error('❌ Ошибка в Base64 строке! Проверьте, что скопировали её целиком:', e.message);
+
+        return;
+
+    }
+
+
+
+    const originalFetch = window.fetch;
+
+    window.fetch = async function(...args) {
+
+        const url = args[0];
+
+        const options = args[1];
+
+
+        if (fakeBlob && typeof url === 'string' && url.includes('/api/files/upload') && options && options.body instanceof FormData) {
+
+            console.log('🎯 Скрипт перехватил отправку! Подменяем картинку на вашу PNG...');
+
+            const newFormData = new FormData();
+
+            for (let [key, value] of options.body.entries()) {
+
+                if (value instanceof File || value instanceof Blob) {
+
+                    newFormData.append(key, fakeBlob, 'banner.png');
+
+                } else {
+
+                    newFormData.append(key, value);
+
+                }
+
+            }
+
+            options.body = newFormData;
+
+        }
+
+        return originalFetch.apply(this, args).then(response => {
+
+            if (typeof url === 'string' && url.includes('/api/files/upload') && response.ok) {
+
+                console.log('🔥 ПОДМЕНЕННЫЙ БАННЕР УСПЕШНО ПРИНЯТ СЕРВЕРОМ!');
+
+            }
+
+            return response;
+
+        });
+
+    };
+
+    console.log('✅ Перехватчик запущен! Теперь просто загрузите ЛЮБУЮ картинку на сайте обычным способом.');
+
+})();
